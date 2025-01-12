@@ -11,9 +11,9 @@
       "code": "commit",
       "explain": "生成提交信息",
       "cmds": [
+        "feat",
         "commit",
         "提交信息",
-        "feat",
         "fix",
         "docs",
         "init",
@@ -24,6 +24,13 @@
         "build",
         "chore",
         "revert"
+      ]
+    },
+    {
+      "code": "config",
+      "explain": "配置",
+      "cmds": [
+        "git commit config"
       ]
     }
   ]

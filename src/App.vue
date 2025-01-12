@@ -1,12 +1,15 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue';
-import Home from './Home/index.vue';
+import HomeView from './components/HomeView.vue';
+import ConfigView from './components/ConfigView.vue';
 const route = ref('')
 const enterAction = ref({})
 
 onMounted(() => {
   window.utools.onPluginEnter((action) => {
     route.value = action.code
+    console.log("route", route.value);
+
     enterAction.value = action
   })
   window.utools.onPluginOut((isKill) => {
@@ -17,6 +20,9 @@ onMounted(() => {
 
 <template>
   <template v-if="route === 'commit'">
-    <Home :enterAction="enterAction"></Home>
+    <HomeView :enterAction="enterAction" />
+  </template>
+  <template v-if="route === 'config'">
+    <ConfigView :enterAction="enterAction" />
   </template>
 </template>

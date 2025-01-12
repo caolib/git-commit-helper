@@ -3,7 +3,9 @@
     "allowJs": true,
     "types": [
       "utools-api-types"
-    ]
+    ],
+    "resolveJsonModule": true,
+    "esModuleInterop": true
   },
   "include": [
     "src/**/*.vue",
