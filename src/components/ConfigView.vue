@@ -65,9 +65,9 @@ const allClassifyRules = computed(() => {
 });
 
 
-const isKill = computed({
-    get: () => settingsStore.isKill.value,
-    set: (val) => { settingsStore.isKill.value = val }
+const copyAction = computed({
+    get: () => settingsStore.copyAction?.value ?? 'copy-close-paste',
+    set: (val) => { settingsStore.copyAction.value = val }
 });
 
 const useIcon = computed({
@@ -84,6 +84,13 @@ const theme = computed({
     get: () => settingsStore.theme.value,
     set: (val) => { settingsStore.theme.value = val }
 });
+
+// 复制后的操作选项
+const copyActionOptions = [
+    { label: '仅复制', value: 'copy-only' },
+    { label: '复制并关闭', value: 'copy-close' },
+    { label: '复制、关闭并粘贴', value: 'copy-close-paste' }
+];
 
 // 主题选项
 const themeOptions = [
@@ -288,7 +295,7 @@ const exportConfig = () => {
             settings: {
                 useIcon: settingsStore.useIcon.value,
                 autoClassify: settingsStore.autoClassify.value,
-                isKill: settingsStore.isKill.value,
+                copyAction: settingsStore.copyAction.value,
                 theme: settingsStore.theme.value,
                 classifyRules: settingsStore.classifyRules.value
             },
@@ -336,8 +343,8 @@ const importConfig = () => {
                     if (config.settings.autoClassify !== undefined) {
                         settingsStore.setAutoClassify(config.settings.autoClassify);
                     }
-                    if (config.settings.isKill !== undefined) {
-                        settingsStore.setIsKill(config.settings.isKill);
+                    if (config.settings.copyAction !== undefined) {
+                        settingsStore.setCopyAction(config.settings.copyAction);
                     }
                     if (config.settings.theme !== undefined) {
                         settingsStore.setTheme(config.settings.theme);
@@ -372,9 +379,16 @@ const importConfig = () => {
 <template>
     <div class="config-view">
         <div class="config-row">
-            <a-switch v-model:checked="isKill" />
-            <a-typography-text v-if="isKill">复制后立即退出插件</a-typography-text>
-            <a-typography-text class="forbidden-item" v-else>复制后不主动退出插件</a-typography-text>
+            <a-typography-text style="margin-right: 10px;">复制后的操作:</a-typography-text>
+            <a-radio-group v-model:value="copyAction" button-style="solid">
+                <a-radio-button v-for="option in copyActionOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                </a-radio-button>
+            </a-radio-group>
+        </div>
+        <div class="config-row" v-if="copyAction === 'copy-close-paste'" style="padding-left: 20px;">
+            <a-alert message="注意" description="复制、关闭并粘贴功能在分离窗口模式下无法正常工作。如果你将 uTools 窗口设置为分离窗口，请选择其他模式。" type="warning"
+                show-icon closable />
         </div>
         <div class="config-row">
             <a-switch v-model:checked="useIcon" />

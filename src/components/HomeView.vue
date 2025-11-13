@@ -149,26 +149,53 @@ const generatedGitCommitMessage = computed(() => {
   return `git commit -m"${generatedCommitMessage.value}"`;
 });
 
-const onCopy = () => {
+const resetInputs = () => {
   commitMessage.value = '';
   scope.value = '';
   contributors.value = '';
   issueId.value = '';
+};
 
-  if (settingsStore.isKill.value) {
+const onCopy = () => {
+  resetInputs();
+
+  const action = settingsStore.copyAction?.value ?? 'copy-close-paste';
+
+  if (action === 'copy-only') {
+    // 仅复制，不关闭
+    message.success('复制好了');
+  } else if (action === 'copy-close') {
+    // 复制并关闭
     utools.hideMainWindow();
     utools.outPlugin();
-    return;
   }
-  message.success('复制好了');
+  // copy-close-paste 模式不需要在这里处理，因为已经在 copyText 中处理了
 };
 
 const copyText = (text) => {
-  navigator.clipboard.writeText(text).then(() => {
-    onCopy();
-  }).catch(() => {
-    message.error('复制失败');
-  });
+  const action = settingsStore.copyAction?.value ?? 'copy-close-paste';
+
+  if (action === 'copy-close-paste') {
+    // 检查是否为分离窗口
+    if (window.utools.getWindowType() === 'detach') {
+      // 分离窗口下仅复制并提示
+      navigator.clipboard.writeText(text);
+      message.warning('分离窗口模式下无法自动粘贴，已复制到剪贴板', 3);
+      resetInputs();
+      return;
+    }
+
+    // 主窗口模式：复制、关闭并粘贴
+    resetInputs();
+    setTimeout(() => window.utools.hideMainWindowPasteText(text), 100);
+  } else {
+    // 其他模式：普通复制
+    navigator.clipboard.writeText(text).then(() => {
+      onCopy();
+    }).catch(() => {
+      message.error('复制失败');
+    });
+  }
 };
 </script>
 

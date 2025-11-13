@@ -48,7 +48,7 @@ const defaultSettings = {
     useIcon: true,
     autoClassify: true,
     classifyRules: { ...defaultClassifyRules },
-    isKill: true,
+    copyAction: 'copy-close-paste', // 'copy-only' | 'copy-close' | 'copy-close-paste'
     theme: 'system',
     isCustomType: false,
     customFileUrl: '',
@@ -60,6 +60,15 @@ const defaultSettings = {
 const loadSettings = () => {
     const saved = getData(SETTINGS_KEY, null)
     if (saved) {
+        // 向后兼容：将旧的 isKill 转换为 copyAction
+        if (saved.isKill !== undefined && saved.copyAction === undefined) {
+            saved.copyAction = saved.isKill ? 'copy-close' : 'copy-only'
+            delete saved.isKill
+        }
+        // 确保 copyAction 有默认值
+        if (!saved.copyAction) {
+            saved.copyAction = 'copy-close-paste'
+        }
         return { ...defaultSettings, ...saved }
     }
     return { ...defaultSettings }
@@ -99,9 +108,9 @@ export function useSettingsStore() {
         set: (val) => { settings.value.classifyRules = val }
     })
 
-    const isKill = computed({
-        get: () => settings.value.isKill,
-        set: (val) => { settings.value.isKill = val }
+    const copyAction = computed({
+        get: () => settings.value.copyAction,
+        set: (val) => { settings.value.copyAction = val }
     })
 
     const theme = computed({
@@ -146,8 +155,8 @@ export function useSettingsStore() {
         settings.value.classifyRules = { ...defaultClassifyRules }
     }
 
-    const setIsKill = (value) => {
-        settings.value.isKill = value
+    const setCopyAction = (value) => {
+        settings.value.copyAction = value
     }
 
     const setTheme = (theme) => {
@@ -173,7 +182,7 @@ export function useSettingsStore() {
         useIcon,
         autoClassify,
         classifyRules,
-        isKill,
+        copyAction,
         theme,
         isCustomType,
         customFileUrl,
@@ -185,7 +194,7 @@ export function useSettingsStore() {
         setAutoClassify,
         setClassifyRules,
         resetClassifyRules,
-        setIsKill,
+        setCopyAction,
         setTheme,
         setCustomType,
         setCustomIcon,
