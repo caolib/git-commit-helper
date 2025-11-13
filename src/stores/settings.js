@@ -1,4 +1,8 @@
-import { defineStore } from 'pinia'
+import { ref, computed, watch } from 'vue'
+import { getData, setData } from '../utils/store'
+
+// 存储键名
+const SETTINGS_KEY = 'git-commit-helper-settings'
 
 // 默认分类规则
 const defaultClassifyRules = {
@@ -39,86 +43,152 @@ const defaultClassifyRules = {
     }
 }
 
-export const useSettingsStore = defineStore('settings', {
-    state: () => ({
-        // 图标设置
-        useIcon: true,
+// 默认设置值
+const defaultSettings = {
+    useIcon: true,
+    autoClassify: true,
+    classifyRules: { ...defaultClassifyRules },
+    isKill: true,
+    theme: 'system',
+    isCustomType: false,
+    customFileUrl: '',
+    isCustomIcon: false,
+    customIconUrl: ''
+}
 
-        // 自动分类设置
-        autoClassify: true,
-        classifyRules: { ...defaultClassifyRules },
-
-        // 行为设置
-        isKill: true, // 复制后是否退出
-
-        // 主题设置：'light' | 'dark' | 'system'
-        theme: 'system',
-
-        // 远程数据源（保留但不推荐使用）
-        isCustomType: false,
-        customFileUrl: '',
-        isCustomIcon: false,
-        customIconUrl: ''
-    }),
-
-    actions: {
-        // 设置图标使用
-        setUseIcon(value) {
-            this.useIcon = value
-        },
-
-        // 设置自动分类
-        setAutoClassify(value) {
-            this.autoClassify = value
-        },
-
-        // 设置分类规则
-        setClassifyRules(rules) {
-            this.classifyRules = rules
-        },
-
-        // 重置分类规则
-        resetClassifyRules() {
-            this.classifyRules = { ...defaultClassifyRules }
-        },
-
-        // 设置复制后退出
-        setIsKill(value) {
-            this.isKill = value
-        },
-
-        // 设置主题
-        setTheme(theme) {
-            this.theme = theme
-        },
-
-        // 设置远程数据源
-        setCustomType(isCustom, url) {
-            this.isCustomType = isCustom
-            this.customFileUrl = url
-        },
-
-        setCustomIcon(isCustom, url) {
-            this.isCustomIcon = isCustom
-            this.customIconUrl = url
-        },
-
-        // 重置所有设置为默认值
-        resetToDefault() {
-            this.useIcon = true
-            this.autoClassify = true
-            this.classifyRules = { ...defaultClassifyRules }
-            this.isKill = true
-            this.theme = 'system'
-            this.isCustomType = false
-            this.customFileUrl = ''
-            this.isCustomIcon = false
-            this.customIconUrl = ''
-        }
-    },
-
-    persist: {
-        key: 'git-commit-helper-settings',
-        storage: localStorage
+// 从 dbStorage 加载设置
+const loadSettings = () => {
+    const saved = getData(SETTINGS_KEY, null)
+    if (saved) {
+        return { ...defaultSettings, ...saved }
     }
-})
+    return { ...defaultSettings }
+}
+
+// 全局状态
+const settings = ref(loadSettings())
+
+// 监听变化并持久化 - 使用 JSON 序列化确保数据可克隆
+watch(
+    settings,
+    (newValue) => {
+        // 深拷贝以确保可序列化
+        const serializableValue = JSON.parse(JSON.stringify(newValue))
+        setData(SETTINGS_KEY, serializableValue)
+    },
+    { deep: true }
+)
+
+/**
+ * settings store - 使用 Composition API 和 uTools dbStorage
+ */
+export function useSettingsStore() {
+    // Computed getters for individual settings
+    const useIcon = computed({
+        get: () => settings.value.useIcon,
+        set: (val) => { settings.value.useIcon = val }
+    })
+
+    const autoClassify = computed({
+        get: () => settings.value.autoClassify,
+        set: (val) => { settings.value.autoClassify = val }
+    })
+
+    const classifyRules = computed({
+        get: () => settings.value.classifyRules,
+        set: (val) => { settings.value.classifyRules = val }
+    })
+
+    const isKill = computed({
+        get: () => settings.value.isKill,
+        set: (val) => { settings.value.isKill = val }
+    })
+
+    const theme = computed({
+        get: () => settings.value.theme,
+        set: (val) => { settings.value.theme = val }
+    })
+
+    const isCustomType = computed({
+        get: () => settings.value.isCustomType,
+        set: (val) => { settings.value.isCustomType = val }
+    })
+
+    const customFileUrl = computed({
+        get: () => settings.value.customFileUrl,
+        set: (val) => { settings.value.customFileUrl = val }
+    })
+
+    const isCustomIcon = computed({
+        get: () => settings.value.isCustomIcon,
+        set: (val) => { settings.value.isCustomIcon = val }
+    })
+
+    const customIconUrl = computed({
+        get: () => settings.value.customIconUrl,
+        set: (val) => { settings.value.customIconUrl = val }
+    })
+
+    // Actions
+    const setUseIcon = (value) => {
+        settings.value.useIcon = value
+    }
+
+    const setAutoClassify = (value) => {
+        settings.value.autoClassify = value
+    }
+
+    const setClassifyRules = (rules) => {
+        settings.value.classifyRules = rules
+    }
+
+    const resetClassifyRules = () => {
+        settings.value.classifyRules = { ...defaultClassifyRules }
+    }
+
+    const setIsKill = (value) => {
+        settings.value.isKill = value
+    }
+
+    const setTheme = (theme) => {
+        settings.value.theme = theme
+    }
+
+    const setCustomType = (isCustom, url) => {
+        settings.value.isCustomType = isCustom
+        settings.value.customFileUrl = url
+    }
+
+    const setCustomIcon = (isCustom, url) => {
+        settings.value.isCustomIcon = isCustom
+        settings.value.customIconUrl = url
+    }
+
+    const resetToDefault = () => {
+        settings.value = { ...defaultSettings }
+    }
+
+    return {
+        // Computed properties
+        useIcon,
+        autoClassify,
+        classifyRules,
+        isKill,
+        theme,
+        isCustomType,
+        customFileUrl,
+        isCustomIcon,
+        customIconUrl,
+
+        // Actions
+        setUseIcon,
+        setAutoClassify,
+        setClassifyRules,
+        resetClassifyRules,
+        setIsKill,
+        setTheme,
+        setCustomType,
+        setCustomIcon,
+        resetToDefault
+    }
+}

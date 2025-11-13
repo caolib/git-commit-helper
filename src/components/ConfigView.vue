@@ -35,7 +35,7 @@ const typeForm = ref({
     icon: ''
 });
 
-const commitTypes = computed(() => commitTypesStore.allCommitTypes);
+const commitTypes = commitTypesStore.allCommitTypes;
 
 // 下拉列表选项（带图标和标签），用于规则管理的选择器
 const selectOptions = computed(() => {
@@ -48,7 +48,7 @@ const selectOptions = computed(() => {
 
 // 动态生成包含所有提交类型的分类规则（包括新添加的类型）
 const allClassifyRules = computed(() => {
-    const rules = { ...settingsStore.classifyRules };
+    const rules = { ...settingsStore.classifyRules.value };
 
     // 为每个提交类型确保有对应的规则配置
     commitTypes.value.forEach(type => {
@@ -64,25 +64,25 @@ const allClassifyRules = computed(() => {
     return rules;
 });
 
-// 计算属性绑定到 Pinia store
+
 const isKill = computed({
-    get: () => settingsStore.isKill,
-    set: (val) => settingsStore.setIsKill(val)
+    get: () => settingsStore.isKill.value,
+    set: (val) => { settingsStore.isKill.value = val }
 });
 
 const useIcon = computed({
-    get: () => settingsStore.useIcon,
-    set: (val) => settingsStore.setUseIcon(val)
+    get: () => settingsStore.useIcon.value,
+    set: (val) => { settingsStore.useIcon.value = val }
 });
 
 const autoClassify = computed({
-    get: () => settingsStore.autoClassify,
-    set: (val) => settingsStore.setAutoClassify(val)
+    get: () => settingsStore.autoClassify.value,
+    set: (val) => { settingsStore.autoClassify.value = val }
 });
 
 const theme = computed({
-    get: () => settingsStore.theme,
-    set: (val) => settingsStore.setTheme(val)
+    get: () => settingsStore.theme.value,
+    set: (val) => { settingsStore.theme.value = val }
 });
 
 // 主题选项
@@ -164,7 +164,7 @@ const removeKeyword = (field, keyword) => {
 // 保存分类规则
 const saveRule = () => {
     if (editingRuleType.value) {
-        const newRules = { ...settingsStore.classifyRules };
+        const newRules = { ...settingsStore.classifyRules.value };
 
         // 确保保存的是过滤后的数组
         newRules[editingRuleType.value] = {
@@ -286,13 +286,13 @@ const exportConfig = () => {
             version: '1.0.0',
             exportTime: new Date().toISOString(),
             settings: {
-                useIcon: settingsStore.useIcon,
-                autoClassify: settingsStore.autoClassify,
-                isKill: settingsStore.isKill,
-                theme: settingsStore.theme,
-                classifyRules: settingsStore.classifyRules
+                useIcon: settingsStore.useIcon.value,
+                autoClassify: settingsStore.autoClassify.value,
+                isKill: settingsStore.isKill.value,
+                theme: settingsStore.theme.value,
+                classifyRules: settingsStore.classifyRules.value
             },
-            commitTypes: commitTypesStore.commitTypes
+            commitTypes: commitTypesStore.commitTypes.value
         };
 
         const result = window.services.exportConfig(configData, 'git-commit-helper-config.json');
@@ -546,7 +546,7 @@ const importConfig = () => {
             <a-form-item label="图标">
                 <a-input v-model:value="typeForm.icon" placeholder="例如：✨（可选）" />
                 <div style="margin-top: 5px; font-size: 12px; color: #888;">
-                    提示：Windows按 Win+. 可打开表情符号面板
+                    提示：Windows按 Win+; 可打开表情符号面板
                 </div>
             </a-form-item>
         </a-form>

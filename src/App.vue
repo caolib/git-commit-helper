@@ -19,10 +19,10 @@ const systemDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').mat
 
 // 计算实际使用的主题
 const actualTheme = computed(() => {
-  if (settingsStore.theme === 'system') {
+  if (settingsStore.theme.value === 'system') {
     return systemDarkMode.value ? 'dark' : 'light';
   }
-  return settingsStore.theme;
+  return settingsStore.theme.value;
 });
 
 // Ant Design 主题配置
@@ -62,10 +62,10 @@ const registerCommands = () => {
   }
 
   registerTimer = setTimeout(() => {
-    const currentTypes = new Set(commitTypesStore.allCommitTypes.map(type => type.value));
+    const currentTypes = new Set(commitTypesStore.allCommitTypes.value.map(type => type.value));
 
     // 添加新类型的功能
-    commitTypesStore.allCommitTypes.forEach(type => {
+    commitTypesStore.allCommitTypes.value.forEach(type => {
       const featureCode = `commit-${type.value}`;
 
       // 如果还未注册，则注册
@@ -129,7 +129,7 @@ onMounted(() => {
 
 // 监听提交类型数组的变化
 watch(
-  () => commitTypesStore.commitTypes.length,
+  () => commitTypesStore.commitTypes.value.length,
   () => {
     registerCommands();
   }
@@ -137,7 +137,7 @@ watch(
 
 // 同时监听类型值的变化
 watch(
-  () => commitTypesStore.commitTypes.map(t => t.value).join(','),
+  () => commitTypesStore.commitTypes.value.map(t => t.value).join(','),
   () => {
     registerCommands();
   }

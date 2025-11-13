@@ -1,4 +1,8 @@
-import { defineStore } from 'pinia'
+import { ref, computed, watch } from 'vue'
+import { getData, setData } from '../utils/store'
+
+// 存储键名
+const STORAGE_KEY = 'git-commit-helper-types'
 
 // 默认提交类型
 const defaultCommitTypes = [
@@ -15,96 +19,117 @@ const defaultCommitTypes = [
     { value: 'revert', label: '回滚提交', icon: '↩' }
 ]
 
-export const useCommitTypesStore = defineStore('commitTypes', {
-    state: () => ({
-        commitTypes: [...defaultCommitTypes]
-    }),
+// 全局状态
+const commitTypes = ref(getData(STORAGE_KEY, [...defaultCommitTypes]))
 
-    getters: {
-        // 获取所有提交类型
-        allCommitTypes: (state) => state.commitTypes,
-
-        // 获取默认提交类型列表
-        defaultCommitTypes: () => defaultCommitTypes,
-
-        // 根据 value 获取提交类型
-        getCommitTypeByValue: (state) => (value) => {
-            return state.commitTypes.find(type => type.value === value)
-        },
-
-        // 检查提交类型是否存在
-        hasCommitType: (state) => (value) => {
-            return state.commitTypes.some(type => type.value === value)
-        }
+// 监听变化并持久化 - 使用 JSON 序列化确保数据可克隆
+watch(
+    commitTypes,
+    (newValue) => {
+        // 深拷贝以确保可序列化
+        const serializableValue = JSON.parse(JSON.stringify(newValue))
+        setData(STORAGE_KEY, serializableValue)
     },
+    { deep: true }
+)
 
-    actions: {
-        // 添加自定义提交类型
-        addCommitType(value, label, icon) {
-            // 类型值必填
-            if (!value || !value.trim()) {
-                return { success: false, message: '类型值不能为空' }
-            }
+/**
+ * commitTypes store - 使用 Composition API 和 uTools dbStorage
+ */
+export function useCommitTypesStore() {
+    // Getters
+    const allCommitTypes = computed(() => commitTypes.value)
 
-            // 检查是否已存在
-            if (this.hasCommitType(value)) {
-                return { success: false, message: '该提交类型已存在' }
-            }
-
-            this.commitTypes.push({
-                value: value.trim(),
-                label: label || '',
-                icon: icon || ''
-            })
-
-            return { success: true, message: '添加成功' }
-        },
-
-        // 更新提交类型
-        updateCommitType(oldValue, newValue, label, icon) {
-            // 类型值必填
-            if (!newValue || !newValue.trim()) {
-                return { success: false, message: '类型值不能为空' }
-            }
-
-            const index = this.commitTypes.findIndex(type => type.value === oldValue)
-            if (index === -1) {
-                return { success: false, message: '提交类型不存在' }
-            }
-
-            // 如果修改了类型值，检查新值是否已存在
-            if (oldValue !== newValue && this.hasCommitType(newValue)) {
-                return { success: false, message: '新的类型值已存在' }
-            }
-
-            this.commitTypes[index] = {
-                value: newValue.trim(),
-                label: label || '',
-                icon: icon || ''
-            }
-
-            return { success: true, message: '更新成功' }
-        },
-
-        // 删除提交类型
-        deleteCommitType(value) {
-            const index = this.commitTypes.findIndex(type => type.value === value)
-            if (index === -1) {
-                return { success: false, message: '提交类型不存在' }
-            }
-
-            this.commitTypes.splice(index, 1)
-            return { success: true, message: '删除成功' }
-        },
-
-        // 重置为默认提交类型
-        resetToDefault() {
-            this.commitTypes = [...defaultCommitTypes]
-        }
-    },
-
-    persist: {
-        key: 'git-commit-helper-types',
-        storage: localStorage
+    const getCommitTypeByValue = (value) => {
+        return commitTypes.value.find(type => type.value === value)
     }
-})
+
+    const hasCommitType = (value) => {
+        return commitTypes.value.some(type => type.value === value)
+    }
+
+    // Actions
+    const addCommitType = (value, label, icon) => {
+        // 类型值必填
+        if (!value || !value.trim()) {
+            return { success: false, message: '类型值不能为空' }
+        }
+
+        // 检查是否已存在
+        if (hasCommitType(value)) {
+            return { success: false, message: '该提交类型已存在' }
+        }
+
+        commitTypes.value.push({
+            value: value.trim(),
+            label: label || '',
+            icon: icon || ''
+        })
+
+        return { success: true, message: '添加成功' }
+    }
+
+    const updateCommitType = (oldValue, newValue, label, icon) => {
+        // 类型值必填
+        if (!newValue || !newValue.trim()) {
+            return { success: false, message: '类型值不能为空' }
+        }
+
+        const index = commitTypes.value.findIndex(type => type.value === oldValue)
+        if (index === -1) {
+            return { success: false, message: '提交类型不存在' }
+        }
+
+        // 如果修改了类型值，检查新值是否已存在
+        if (oldValue !== newValue && hasCommitType(newValue)) {
+            return { success: false, message: '新的类型值已存在' }
+        }
+
+        commitTypes.value[index] = {
+            value: newValue.trim(),
+            label: label || '',
+            icon: icon || ''
+        }
+
+        return { success: true, message: '更新成功' }
+    }
+
+    const deleteCommitType = (value) => {
+        const index = commitTypes.value.findIndex(type => type.value === value)
+        if (index === -1) {
+            return { success: false, message: '提交类型不存在' }
+        }
+
+        commitTypes.value.splice(index, 1)
+        return { success: true, message: '删除成功' }
+    }
+
+    const resetToDefault = () => {
+        commitTypes.value = [...defaultCommitTypes]
+    }
+
+    // 用于支持 $patch 方法（ConfigView 中导入配置使用）
+    const $patch = (updates) => {
+        if (updates.commitTypes) {
+            commitTypes.value = updates.commitTypes
+        }
+    }
+
+    return {
+        // State
+        commitTypes,
+
+        // Getters
+        allCommitTypes,
+        defaultCommitTypes,
+        getCommitTypeByValue,
+        hasCommitType,
+
+        // Actions
+        addCommitType,
+        updateCommitType,
+        deleteCommitType,
+        resetToDefault,
+        $patch
+    }
+}

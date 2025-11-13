@@ -20,7 +20,7 @@ const scope = ref('');
 const contributors = ref('');
 const issueId = ref('');
 
-const commitTypes = computed(() => commitTypesStore.allCommitTypes);
+const commitTypes = commitTypesStore.allCommitTypes;
 
 const selectedIcon = computed(() => {
   const type = commitTypesStore.getCommitTypeByValue(selectedType.value);
@@ -68,12 +68,12 @@ onMounted(() => {
 });
 
 const autoClassifyCommitType = (description) => {
-  if (!settingsStore.autoClassify || !description.trim()) {
+  if (!settingsStore.autoClassify.value || !description.trim()) {
     return;
   }
 
   const lowerDesc = description.toLowerCase().trim();
-  const classifyRules = settingsStore.classifyRules;
+  const classifyRules = settingsStore.classifyRules.value;
 
   for (const [type, rules] of Object.entries(classifyRules)) {
     if (!commitTypesStore.hasCommitType(type)) {
@@ -128,7 +128,7 @@ const generatedCommitMessage = computed(() => {
   if (!selectedType.value) return '';
 
   const scopeText = scope.value ? `(${scope.value})` : '';
-  const emojiPart = settingsStore.useIcon ? `${selectedIcon.value} ` : '';
+  const emojiPart = settingsStore.useIcon.value ? `${selectedIcon.value} ` : '';
 
   let commit = `${emojiPart}${selectedType.value}${scopeText}: ${commitMessage.value}`;
 
@@ -155,7 +155,7 @@ const onCopy = () => {
   contributors.value = '';
   issueId.value = '';
 
-  if (settingsStore.isKill) {
+  if (settingsStore.isKill.value) {
     utools.hideMainWindow();
     utools.outPlugin();
     return;
