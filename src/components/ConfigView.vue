@@ -11,10 +11,18 @@ const commitTypesStore = useCommitTypesStore();
 const showRulesManager = ref(false);
 const showEditRule = ref(false);
 const editingRuleType = ref('');
+const selectedRuleType = ref(''); // 用于下拉选择的类型
 const ruleForm = ref({
     startsWith: [],
     contains: [],
     endsWith: []
+});
+
+// 临时输入框的值
+const tempInputs = ref({
+    startsWith: '',
+    contains: '',
+    endsWith: ''
 });
 
 // 提交类型管理相关状态
@@ -28,6 +36,33 @@ const typeForm = ref({
 });
 
 const commitTypes = computed(() => commitTypesStore.allCommitTypes);
+
+// 下拉列表选项（带图标和标签），用于规则管理的选择器
+const selectOptions = computed(() => {
+    return commitTypes.value.map(t => ({
+        value: t.value,
+        label: t.label || t.value,
+        icon: t.icon || ''
+    }));
+});
+
+// 动态生成包含所有提交类型的分类规则（包括新添加的类型）
+const allClassifyRules = computed(() => {
+    const rules = { ...settingsStore.classifyRules };
+
+    // 为每个提交类型确保有对应的规则配置
+    commitTypes.value.forEach(type => {
+        if (!rules[type.value]) {
+            rules[type.value] = {
+                startsWith: [],
+                contains: [],
+                endsWith: []
+            };
+        }
+    });
+
+    return rules;
+});
 
 // 计算属性绑定到 Pinia store
 const isKill = computed({
@@ -65,30 +100,81 @@ const saveData = () => {
 
 // 打开分类规则管理
 const openRulesManager = () => {
+    // 默认选择第一个可用选项（使用带图标的 selectOptions）
+    const types = selectOptions.value.map(o => o.value);
+    if (types.length > 0) {
+        selectedRuleType.value = types[0];
+    }
     showRulesManager.value = true;
 }
+
+// 当前选中类型的规则
+const currentRules = computed(() => {
+    return allClassifyRules.value[selectedRuleType.value] || { startsWith: [], contains: [], endsWith: [] };
+});
 
 // 编辑分类规则
 const editRule = (type) => {
     editingRuleType.value = type;
-    const rules = settingsStore.classifyRules[type];
+    const rules = allClassifyRules.value[type] || { startsWith: [], contains: [], endsWith: [] };
+
+    // 确保数组类型正确
     ruleForm.value = {
-        startsWith: [...(rules.startsWith || [])],
-        contains: [...(rules.contains || [])],
-        endsWith: [...(rules.endsWith || [])]
+        startsWith: Array.isArray(rules.startsWith) ? [...rules.startsWith] : [],
+        contains: Array.isArray(rules.contains) ? [...rules.contains] : [],
+        endsWith: Array.isArray(rules.endsWith) ? [...rules.endsWith] : []
     };
+
+    // 重置临时输入框为空字符串
+    tempInputs.value = {
+        startsWith: '',
+        contains: '',
+        endsWith: ''
+    };
+
     showEditRule.value = true;
 }
+
+// 处理回车键添加关键词
+const handleKeywordAdd = (field, event) => {
+    // 确保 tempInputs[field] 是字符串
+    const inputValue = String(tempInputs.value[field] || '').trim();
+
+    if (inputValue && Array.isArray(ruleForm.value[field])) {
+        // 避免重复添加
+        if (!ruleForm.value[field].includes(inputValue)) {
+            ruleForm.value[field].push(inputValue);
+        }
+        // 清空输入框
+        tempInputs.value[field] = '';
+    }
+}
+
+// 删除关键词
+const removeKeyword = (field, keyword) => {
+    if (Array.isArray(ruleForm.value[field])) {
+        ruleForm.value[field] = ruleForm.value[field].filter(k => k !== keyword);
+    }
+};
 
 // 保存分类规则
 const saveRule = () => {
     if (editingRuleType.value) {
         const newRules = { ...settingsStore.classifyRules };
+
+        // 确保保存的是过滤后的数组
         newRules[editingRuleType.value] = {
-            startsWith: ruleForm.value.startsWith.filter(k => k.trim()),
-            contains: ruleForm.value.contains.filter(k => k.trim()),
-            endsWith: ruleForm.value.endsWith.filter(k => k.trim())
+            startsWith: Array.isArray(ruleForm.value.startsWith)
+                ? ruleForm.value.startsWith.filter(k => k && k.trim())
+                : [],
+            contains: Array.isArray(ruleForm.value.contains)
+                ? ruleForm.value.contains.filter(k => k && k.trim())
+                : [],
+            endsWith: Array.isArray(ruleForm.value.endsWith)
+                ? ruleForm.value.endsWith.filter(k => k && k.trim())
+                : []
         };
+
         settingsStore.setClassifyRules(newRules);
         message.success('规则已更新');
         showEditRule.value = false;
@@ -100,6 +186,14 @@ const saveRule = () => {
 const resetRule = (type) => {
     settingsStore.resetClassifyRules();
     message.success('已重置为默认规则');
+    // 刷新选中的类型以显示重置后的数据
+    if (selectedRuleType.value) {
+        const temp = selectedRuleType.value;
+        selectedRuleType.value = '';
+        setTimeout(() => {
+            selectedRuleType.value = temp;
+        }, 0);
+    }
 }
 
 // 提交类型管理方法
@@ -191,13 +285,16 @@ const resetTypesToDefault = () => {
         </div>
         <div class="config-row">
             <a-switch v-model:checked="useIcon" />
-            <a-typography-text v-if="useIcon">开启图标⭐</a-typography-text>
+            <a-typography-text v-if="useIcon">开启图标🌟</a-typography-text>
             <a-typography-text class="forbidden-item" v-else>不使用图标</a-typography-text>
         </div>
         <div class="config-row">
             <a-switch v-model:checked="autoClassify" />
-            <a-typography-text v-if="autoClassify">开启自动分类🤖</a-typography-text>
-            <a-typography-text class="forbidden-item" v-else>手动选择提交类型</a-typography-text>
+            <a-tooltip title="开启后会根据提交信息中的关键字自动选择提交类型">
+                <a-typography-text v-if="autoClassify">根据规则分类</a-typography-text>
+                <a-typography-text class="forbidden-item" v-else>手动选择类型</a-typography-text>
+                <span style="margin-left:8px;color:#888;cursor:help">?</span>
+            </a-tooltip>
         </div>
         <div class="config-row">
             <a-button type="default" @click="openRulesManager">
@@ -219,65 +316,89 @@ const resetTypesToDefault = () => {
 
     <!-- 分类规则管理弹窗 -->
     <a-modal v-model:open="showRulesManager" title="自动分类规则管理" width="70vw" @ok="showRulesManager = false">
-        <a-tabs>
-            <a-tab-pane v-for="(rules, type) in settingsStore.classifyRules" :key="type" :tab="type">
-                <div style="margin-bottom: 15px;">
-                    <a-button type="primary" size="small" @click="editRule(type)">编辑规则</a-button>
-                    <a-button type="default" size="small" style="margin-left: 10px;"
-                        @click="resetRule(type)">重置此类型</a-button>
-                </div>
-                <a-descriptions bordered :column="1" size="small">
-                    <a-descriptions-item label="以...开头">
-                        <a-tag v-for="keyword in rules.startsWith" :key="keyword" color="blue">{{ keyword }}</a-tag>
-                        <span v-if="!rules.startsWith || rules.startsWith.length === 0" style="color: #999;">无</span>
-                    </a-descriptions-item>
-                    <a-descriptions-item label="包含...">
-                        <a-tag v-for="keyword in rules.contains" :key="keyword" color="green">{{ keyword }}</a-tag>
-                        <span v-if="!rules.contains || rules.contains.length === 0" style="color: #999;">无</span>
-                    </a-descriptions-item>
-                    <a-descriptions-item label="以...结尾">
-                        <a-tag v-for="keyword in rules.endsWith" :key="keyword" color="orange">{{ keyword }}</a-tag>
-                        <span v-if="!rules.endsWith || rules.endsWith.length === 0" style="color: #999;">无</span>
-                    </a-descriptions-item>
-                </a-descriptions>
-            </a-tab-pane>
-        </a-tabs>
+        <div style="margin-bottom: 15px; display:flex; align-items:center; gap:10px;">
+            <a-select v-model:value="selectedRuleType" style="width: 300px;" placeholder="选择提交类型">
+                <a-select-option v-for="option in selectOptions" :key="option.value" :value="option.value">
+                    <span v-if="option.icon" style="margin-right:8px">{{ option.icon }}</span>
+                    <span>{{ option.value }} {{ option.label }}</span>
+                </a-select-option>
+            </a-select>
+            <a-button type="primary" size="small" @click="editRule(selectedRuleType)" :disabled="!selectedRuleType">
+                编辑规则
+            </a-button>
+            <a-button type="default" size="small" @click="resetRule(selectedRuleType)" :disabled="!selectedRuleType">
+                重置此类型
+            </a-button>
+        </div>
+
+        <a-descriptions v-if="selectedRuleType" bordered :column="1" size="small">
+            <a-descriptions-item label="以...开头">
+                <a-tag v-for="keyword in currentRules.startsWith" :key="keyword" color="blue">{{ keyword }}</a-tag>
+                <span v-if="!currentRules.startsWith || currentRules.startsWith.length === 0"
+                    style="color: #999;">无</span>
+            </a-descriptions-item>
+            <a-descriptions-item label="包含...">
+                <a-tag v-for="keyword in currentRules.contains" :key="keyword" color="green">{{ keyword }}</a-tag>
+                <span v-if="!currentRules.contains || currentRules.contains.length === 0" style="color: #999;">无</span>
+            </a-descriptions-item>
+            <a-descriptions-item label="以...结尾">
+                <a-tag v-for="keyword in currentRules.endsWith" :key="keyword" color="orange">{{ keyword }}</a-tag>
+                <span v-if="!currentRules.endsWith || currentRules.endsWith.length === 0" style="color: #999;">无</span>
+            </a-descriptions-item>
+        </a-descriptions>
+        <div v-else style="text-align: center; padding: 40px; color: #999;">
+            请选择一个提交类型
+        </div>
     </a-modal>
 
     <!-- 编辑规则弹窗 -->
     <a-modal v-model:open="showEditRule" :title="`编辑 ${editingRuleType} 的分类规则`" width="500px" @ok="saveRule"
-        @cancel="showEditRule = false; editingRuleType = ''">>
+        @cancel="showEditRule = false; editingRuleType = ''">
         <a-form layout="vertical">
-            <a-form-item label="以...开头（多个关键词用逗号分隔）">
-                <a-input v-model:value="ruleForm.startsWith" placeholder="例如：修复,fix,修正"
-                    @change="ruleForm.startsWith = $event.target.value.split(',').map(k => k.trim())" />
-                <div style="margin-top: 5px;">
-                    <a-tag v-for="keyword in ruleForm.startsWith.filter(k => k)" :key="keyword" closable
-                        @close="ruleForm.startsWith = ruleForm.startsWith.filter(k => k !== keyword)">{{ keyword
-                        }}</a-tag>
+            <a-form-item label="以...开头（输入后按回车添加）">
+                <a-input v-model:value="tempInputs.startsWith" placeholder="例如：修复"
+                    @pressEnter="handleKeywordAdd('startsWith', $event)" />
+                <div style="margin-top: 8px;">
+                    <a-tag v-for="keyword in ruleForm.startsWith" :key="keyword" closable color="blue"
+                        @close="removeKeyword('startsWith', keyword)">
+                        {{ keyword }}
+                    </a-tag>
+                    <span v-if="ruleForm.startsWith.length === 0" style="color: #999; font-size: 12px;">
+                        暂无关键词
+                    </span>
                 </div>
             </a-form-item>
-            <a-form-item label="包含...（多个关键词用逗号分隔）">
-                <a-input v-model:value="ruleForm.contains" placeholder="例如：bug,错误,问题"
-                    @change="ruleForm.contains = $event.target.value.split(',').map(k => k.trim())" />
-                <div style="margin-top: 5px;">
-                    <a-tag v-for="keyword in ruleForm.contains.filter(k => k)" :key="keyword" closable
-                        @close="ruleForm.contains = ruleForm.contains.filter(k => k !== keyword)">{{ keyword }}</a-tag>
+            <a-form-item label="包含...（输入后按回车添加）">
+                <a-input v-model:value="tempInputs.contains" placeholder="例如：bug"
+                    @pressEnter="handleKeywordAdd('contains', $event)" />
+                <div style="margin-top: 8px;">
+                    <a-tag v-for="keyword in ruleForm.contains" :key="keyword" closable color="green"
+                        @close="removeKeyword('contains', keyword)">
+                        {{ keyword }}
+                    </a-tag>
+                    <span v-if="ruleForm.contains.length === 0" style="color: #999; font-size: 12px;">
+                        暂无关键词
+                    </span>
                 </div>
             </a-form-item>
-            <a-form-item label="以...结尾（多个关键词用逗号分隔）">
-                <a-input v-model:value="ruleForm.endsWith" placeholder="留空表示不使用"
-                    @change="ruleForm.endsWith = $event.target.value.split(',').map(k => k.trim())" />
-                <div style="margin-top: 5px;">
-                    <a-tag v-for="keyword in ruleForm.endsWith.filter(k => k)" :key="keyword" closable
-                        @close="ruleForm.endsWith = ruleForm.endsWith.filter(k => k !== keyword)">{{ keyword }}</a-tag>
+            <a-form-item label="以...结尾（输入后按回车添加）">
+                <a-input v-model:value="tempInputs.endsWith" placeholder="留空表示不使用"
+                    @pressEnter="handleKeywordAdd('endsWith', $event)" />
+                <div style="margin-top: 8px;">
+                    <a-tag v-for="keyword in ruleForm.endsWith" :key="keyword" closable color="orange"
+                        @close="removeKeyword('endsWith', keyword)">
+                        {{ keyword }}
+                    </a-tag>
+                    <span v-if="ruleForm.endsWith.length === 0" style="color: #999; font-size: 12px;">
+                        暂无关键词
+                    </span>
                 </div>
             </a-form-item>
         </a-form>
     </a-modal>
 
     <!-- 提交类型管理弹窗 -->
-    <a-modal v-model:open="showTypeManager" title="提交类型管理" width="80vw">
+    <a-modal v-model:open="showTypeManager" title="提交类型管理" width="80vw" @ok="showTypeManager = false">
         <div style="margin-bottom: 15px;">
             <a-button type="primary" @click="addNewType">添加提交类型</a-button>
             <a-button style="margin-left: 10px;" @click="resetTypesToDefault">重置为默认</a-button>
@@ -337,11 +458,14 @@ div.config-row {
     align-items: center;
     padding: 10px;
     width: 80vw;
-    margin: 10px;
     gap: 10px;
 }
 
 .forbidden-item {
     color: gray;
+}
+
+.type-icon {
+    margin-right: 8px;
 }
 </style>

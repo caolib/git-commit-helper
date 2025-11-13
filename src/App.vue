@@ -14,7 +14,7 @@ const menuItems = [
   {
     key: 'home',
     icon: () => h(FileTextOutlined),
-    label: '提交生成器',
+    label: '提交生成',
   },
   {
     key: 'config',
@@ -42,7 +42,7 @@ const handleMenuClick = ({ key }) => {
 <template>
   <ConfigProvider>
     <Layout style="min-height: 100vh;">
-      <Sider theme="light" :width="200" style="border-right: 1px solid #f0f0f0;">
+      <Sider theme="light" :width="150" style="border-right: 1px solid #f0f0f0;">
         <Menu v-model:selectedKeys="currentView" mode="inline" :items="menuItems" @click="handleMenuClick" />
       </Sider>
       <Content style="background: #fff;">

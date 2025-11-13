@@ -144,7 +144,7 @@ const copyText = (text) => {
           show-search>
           <a-select-option v-for="type in commitTypes" :key="type.value" :value="type.value">
             <span v-if="type.icon" class="type-icon">{{ type.icon }}</span>
-            <span>{{ type.label || type.value }}</span>
+            <span>{{ type.value }} {{ type.label }}</span>
           </a-select-option>
         </a-select>
         <a-input v-model:value="scope" style="flex:2;box-shadow: 0px 4px 4px rgb(0 0 0 / 10%);" placeholder="范围（可选）" />
