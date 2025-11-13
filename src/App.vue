@@ -1,7 +1,9 @@
-<script lang="ts" setup>
+<script setup>
 import { onMounted, ref } from 'vue';
+import { ConfigProvider } from 'ant-design-vue';
 import HomeView from './components/HomeView.vue';
 import ConfigView from './components/ConfigView.vue';
+
 const route = ref('')
 const enterAction = ref({})
 
@@ -19,10 +21,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <template v-if="route === 'commit'">
-    <HomeView :enterAction="enterAction" />
-  </template>
-  <template v-if="route === 'config'">
-    <ConfigView :enterAction="enterAction" />
-  </template>
+  <ConfigProvider>
+    <template v-if="route === 'commit'">
+      <HomeView :enterAction="enterAction" />
+    </template>
+    <template v-if="route === 'config'">
+      <ConfigView :enterAction="enterAction" />
+    </template>
+  </ConfigProvider>
 </template>

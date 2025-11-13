@@ -1,10 +1,9 @@
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue';
-import commitTypesData from '../data/commitTypes.json';
-import iconOptionsData from '../data/iconOptions.json';
-import { SettingFilled } from '@ant-design/icons-vue';
-import { getData } from '../utils/store';
-import { message } from 'ant-design-vue';
+import { SettingFilled, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { message, Modal } from 'ant-design-vue';
+import { useCommitTypesStore } from '../stores/commitTypes';
+import { useSettingsStore } from '../stores/settings';
 
 const props = defineProps({
   enterAction: {
@@ -13,65 +12,130 @@ const props = defineProps({
   }
 });
 
-console.log('payload:', props.enterAction.payload);
+const commitTypesStore = useCommitTypesStore();
+const settingsStore = useSettingsStore();
 
-const useIcon = ref(getData('useIcon')); // 是否使用图标
-console.log('useIcon:', useIcon.value)
+const selectedType = ref('feat');
+const commitMessage = ref('');
+const scope = ref('');
+const contributors = ref('');
+const issueId = ref('');
 
-const commitTypes = ref(commitTypesData); // 本地提交信息类型数据
-const iconOptions = ref(iconOptionsData); // 本地图标数据
+const showTypeManager = ref(false);
+const showTypeForm = ref(false);
+const editingType = ref(null);
+const typeForm = ref({
+  value: '',
+  label: '',
+  icon: ''
+});
 
-const selectedType = ref('');   // 选择的提交信息类型
-const commitMessage = ref('');  // 提交信息
-const selectedIcon = ref('');   // 选择的图标
-const scope = ref('');          // 范围
+const commitTypes = computed(() => commitTypesStore.allCommitTypes);
+const useIcon = computed({
+  get: () => settingsStore.useIcon,
+  set: (val) => settingsStore.setUseIcon(val)
+});
+const autoClassify = computed({
+  get: () => settingsStore.autoClassify,
+  set: (val) => settingsStore.setAutoClassify(val)
+});
+
+const selectedIcon = computed(() => {
+  const type = commitTypesStore.getCommitTypeByValue(selectedType.value);
+  return type?.icon || '';
+});
 
 onMounted(() => {
-  // 初始化提交类型和图标配置，如果是自定义的话，就从远程获取
-  if (getData('isCustomType')) {
-    const typeFileUrl = getData('customFileUrl');
-    if (typeFileUrl) {
-      fetch(typeFileUrl).then(res => res.json()).then(data => {
-        commitTypes.value = data;
-      });
-    }
-  }
-  if (getData('isCustomIcon')) {
-    const iconFileUrl = getData('customIconUrl');
-    if (iconFileUrl) {
-      fetch(iconFileUrl).then(res => res.json()).then(data => {
-        iconOptions.value = data;
-      });
-    }
-  }
-
-  // 根据关键字初始化提交信息类型
-  selectedType.value = props.enterAction.payload;
+  selectedType.value = props.enterAction.payload || 'feat';
 });
 
-// 生成的提交信息
+const autoClassifyCommitType = (description) => {
+  if (!settingsStore.autoClassify || !description.trim()) {
+    return;
+  }
+
+  const lowerDesc = description.toLowerCase().trim();
+  const classifyRules = settingsStore.classifyRules;
+
+  for (const [type, rules] of Object.entries(classifyRules)) {
+    if (!commitTypesStore.hasCommitType(type)) {
+      continue;
+    }
+
+    if (rules.startsWith?.length > 0) {
+      if (rules.startsWith.some(keyword => lowerDesc.startsWith(keyword.toLowerCase()))) {
+        selectedType.value = type;
+        return;
+      }
+    }
+
+    if (rules.endsWith?.length > 0) {
+      if (rules.endsWith.some(keyword => lowerDesc.endsWith(keyword.toLowerCase()))) {
+        selectedType.value = type;
+        return;
+      }
+    }
+
+    if (rules.contains?.length > 0) {
+      if (rules.contains.some(keyword => lowerDesc.includes(keyword.toLowerCase()))) {
+        selectedType.value = type;
+        return;
+      }
+    }
+  }
+};
+
+watch(commitMessage, (newMessage) => {
+  autoClassifyCommitType(newMessage);
+});
+
+const formatContributors = (contributorsText) => {
+  if (!contributorsText.trim()) {
+    return '';
+  }
+
+  if (contributorsText.includes('@')) {
+    return contributorsText.trim();
+  }
+
+  const names = contributorsText
+    .split(/[\s,&]+/)
+    .map(name => name.trim())
+    .filter(name => name.length > 0);
+
+  return names.map(name => `@${name}`).join(' & ');
+};
+
 const generatedCommitMessage = computed(() => {
   const scopeText = scope.value ? `(${scope.value})` : '';
-  return useIcon.value
-    ? `${selectedIcon.value} ${selectedType.value}${scopeText}: ${commitMessage.value}`
-    : `${selectedType.value}${scopeText}: ${commitMessage.value}`;
+  const emojiPart = useIcon.value ? `${selectedIcon.value} ` : '';
+
+  let commit = `${emojiPart}${selectedType.value}${scopeText}: ${commitMessage.value}`;
+
+  if (contributors.value.trim()) {
+    const formattedContributors = formatContributors(contributors.value);
+    commit += ` thanks ${formattedContributors}`;
+  }
+
+  if (issueId.value.trim()) {
+    const issueText = issueId.value.trim().startsWith('#') ? issueId.value.trim() : `#${issueId.value.trim()}`;
+    commit += ` ${issueText}`;
+  }
+
+  return commit;
 });
 
-// 生成的git提交代码
 const generatedGitCommitMessage = computed(() => {
   return `git commit -m"${generatedCommitMessage.value}"`;
 });
 
-
-watch(selectedType, (newValue) => {
-  const selected = commitTypes.value.find(type => type.value === newValue);
-  if (selected) {
-    selectedIcon.value = selected.icon;
-  }
-});
-
 const onCopy = () => {
-  if (getData('isKill')) {
+  commitMessage.value = '';
+  scope.value = '';
+  contributors.value = '';
+  issueId.value = '';
+
+  if (settingsStore.isKill) {
     utools.hideMainWindow();
     utools.outPlugin();
     return;
@@ -79,58 +143,136 @@ const onCopy = () => {
   message.success('复制好了');
 };
 
+const copyText = (text) => {
+  navigator.clipboard.writeText(text).then(() => {
+    onCopy();
+  }).catch(() => {
+    message.error('复制失败');
+  });
+};
+
 const handleSetting = () => {
-  // 跳转到设置
   utools.redirect('git commit config', null);
 };
 
+const openTypeManager = () => {
+  showTypeManager.value = true;
+};
+
+const addNewType = () => {
+  editingType.value = null;
+  typeForm.value = { value: '', label: '', icon: '' };
+  showTypeForm.value = true;
+};
+
+const editType = (type) => {
+  editingType.value = { ...type }; // 保存原始值的副本
+  typeForm.value = { ...type };
+  showTypeForm.value = true;
+};
+
+const deleteType = (type) => {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除提交类型 "${type.label}" 吗？`,
+    okText: '确定',
+    cancelText: '取消',
+    onOk() {
+      const result = commitTypesStore.deleteCommitType(type.value);
+      if (result.success) {
+        message.success(result.message);
+      } else {
+        message.error(result.message);
+      }
+    }
+  });
+};
+
+const saveType = () => {
+  // 只验证类型值必填
+  if (!typeForm.value.value || !typeForm.value.value.trim()) {
+    message.error('类型值不能为空');
+    return;
+  }
+
+  let result;
+  if (editingType.value) {
+    // 编辑模式：传入旧值和新值
+    result = commitTypesStore.updateCommitType(
+      editingType.value.value,  // 旧的类型值
+      typeForm.value.value,      // 新的类型值
+      typeForm.value.label,
+      typeForm.value.icon
+    );
+  } else {
+    result = commitTypesStore.addCommitType(
+      typeForm.value.value,
+      typeForm.value.label,
+      typeForm.value.icon
+    );
+  }
+
+  if (result.success) {
+    message.success(result.message);
+    showTypeForm.value = false;
+    editingType.value = null;
+  } else {
+    message.error(result.message);
+  }
+};
+
+const resetToDefault = () => {
+  Modal.confirm({
+    title: '确认重置',
+    content: '确定要重置为默认提交类型吗？这将删除所有自定义类型。',
+    okText: '确定',
+    cancelText: '取消',
+    onOk() {
+      commitTypesStore.resetToDefault();
+      message.success('已重置为默认提交类型');
+    }
+  });
+};
 </script>
 
 <template>
   <div style="display: flex; justify-content: center; margin-bottom: 10px;">
     <div class="commit-generator">
-      <!-- 第一行 -->
       <div class="row1" style="display: flex; gap: 10px;width:80vw;">
-        <!-- 提交信息类型 -->
-        <a-select class="i-selector" v-model:value="selectedType" style="flex:5;" placeholder="选择类型" allow-clear
+        <a-select class="i-selector" v-model:value="selectedType" style="flex:3;" placeholder="选择类型" allow-clear
           show-search>
           <a-select-option v-for="type in commitTypes" :key="type.value" :value="type.value">
-            {{ type.icon }} {{ type.label }}
+            <span v-if="type.icon" class="type-icon">{{ type.icon }}</span>
+            <span>{{ type.label || type.value }}</span>
           </a-select-option>
         </a-select>
-        <!-- 输入的范围 -->
-        <a-input v-model:value="scope" style="flex:2.5;box-shadow: 0px 4px 4px rgb(0 0 0 / 10%);"
-          placeholder="范围（可选）" />
-        <!-- 图标类型 -->
-        <a-select class="i-selector" v-model:value="selectedIcon" style="flex:2.5" placeholder="选择图标">
-          <a-select-option v-for="icon in iconOptions" :key="icon.value" :value="icon.value">
-            {{ icon.label }}
-          </a-select-option>
-        </a-select>
+        <a-input v-model:value="scope" style="flex:2;box-shadow: 0px 4px 4px rgb(0 0 0 / 10%);" placeholder="范围（可选）" />
+        <a-input v-model:value="contributors" style="flex:2;box-shadow: 0px 4px 4px rgb(0 0 0 / 10%);"
+          placeholder="贡献者（可选）" />
+        <a-input v-model:value="issueId" style="flex:1.5;box-shadow: 0px 4px 4px rgb(0 0 0 / 10%);"
+          placeholder="问题ID（可选）" />
       </div>
-      <!-- 第二行 -->
       <div class="row2" style="display: flex;padding: 10px; align-items: center;width: 80vw;">
-        <!-- 提交信息 -->
         <a-textarea v-model:value="commitMessage" allowClear placeholder="输入提交信息概述" :rows="3" />
       </div>
 
-      <!-- 第三组 -->
       <div class="row3" style="display: flex;padding: 10px; flex-direction: column;">
-        <!-- 提示文本 -->
-        <a-typography-paragraph v-if="!getData('hideTip')" class="commit-msg" style="color: gray;font-size: 12px;">
-          下面分别是生成的提交信息和git提交代码，点击蓝色图标复制
-        </a-typography-paragraph>
-        <!-- 生成的提交信息 -->
-        <a-typography-paragraph class="commit-msg" :copyable="{ text: generatedCommitMessage, onCopy: onCopy }">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+          <a-switch v-model:checked="useIcon" checked-children="使用emoji" un-checked-children="不使用" />
+          <a-switch v-model:checked="autoClassify" checked-children="自动分类" un-checked-children="手动选择" />
+          <a-button type="primary" size="small" @click="openTypeManager">
+            <edit-outlined /> 管理提交类型
+          </a-button>
+        </div>
+
+        <div class="commit-msg clickable" @click="copyText(generatedCommitMessage)">
           {{ generatedCommitMessage }}
-        </a-typography-paragraph>
-        <!-- 生成commit代码拼接信息 -->
-        <a-typography-paragraph class="commit-msg" :copyable="{ text: generatedGitCommitMessage, onCopy: onCopy }">
+        </div>
+        <div class="commit-msg clickable" @click="copyText(generatedGitCommitMessage)">
           {{ generatedGitCommitMessage }}
-        </a-typography-paragraph>
+        </div>
       </div>
 
-      <!-- 设置按钮 -->
       <div style="position: fixed; bottom: 10px; right: 10px;">
         <a-button class="config-btn" @click="handleSetting" type="dashed">
           <setting-filled spin style="font-size: 20px;color: gray;" />
@@ -138,6 +280,50 @@ const handleSetting = () => {
       </div>
     </div>
   </div>
+
+  <a-modal v-model:open="showTypeManager" title="提交类型管理" width="80vw" @ok="showTypeManager = false">
+    <div style="margin-bottom: 15px;">
+      <a-button type="primary" @click="addNewType">添加提交类型</a-button>
+      <a-button style="margin-left: 10px;" @click="resetToDefault">重置为默认</a-button>
+    </div>
+
+    <a-table :dataSource="commitTypes" :columns="[
+      { title: '图标', dataIndex: 'icon', key: 'icon', width: 80 },
+      { title: '类型值', dataIndex: 'value', key: 'value', width: 100 },
+      { title: '说明', dataIndex: 'label', key: 'label' },
+      { title: '操作', key: 'action', width: 150 }
+    ]" :pagination="false" bordered>
+      <template #bodyCell="{ column, record }">
+        <template v-if="column.key === 'action'">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <a-button type="link" size="small" @click="editType(record)">
+              <edit-outlined /> 编辑
+            </a-button>
+            <a-button type="link" danger size="small" @click="deleteType(record)">
+              <delete-outlined /> 删除
+            </a-button>
+          </div>
+        </template>
+      </template>
+    </a-table>
+  </a-modal>
+
+  <a-modal v-model:open="showTypeForm" :title="editingType ? '编辑提交类型' : '添加提交类型'" width="400px" @ok="saveType">
+    <a-form :model="typeForm" layout="vertical">
+      <a-form-item label="类型值" required>
+        <a-input v-model:value="typeForm.value" placeholder="例如：feat" />
+      </a-form-item>
+      <a-form-item label="说明">
+        <a-input v-model:value="typeForm.label" placeholder="例如：新功能（可选）" />
+      </a-form-item>
+      <a-form-item label="图标">
+        <a-input v-model:value="typeForm.icon" placeholder="例如：✨（可选）" />
+        <div style="margin-top: 5px; font-size: 12px; color: #888;">
+          提示：Windows按 Win+. 可打开表情符号面板
+        </div>
+      </a-form-item>
+    </a-form>
+  </a-modal>
 </template>
 
 <style scoped>
@@ -158,14 +344,12 @@ input.ant-input {
   align-items: center;
 }
 
-/* 输入的提交信息 */
 textarea.ant-input {
   height: 30vh;
   border-radius: 10px;
   box-shadow: 0px 4px 4px rgba(0, 0, 0, .1);
 }
 
-/* 可复制文本 */
 .commit-msg {
   font-size: 20px;
   width: fit-content;
@@ -177,8 +361,24 @@ textarea.ant-input {
   white-space: pre-wrap;
 }
 
+.commit-msg.clickable {
+  margin-top: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.commit-msg.clickable:hover {
+  text-decoration: underline dashed #c678dd 2px;
+  text-underline-offset: 4px;
+  box-shadow: 0px 6px 8px rgb(0 0 0 / 15%);
+}
+
 .i-selector {
   box-shadow: 0px 4px 4px rgba(0, 0, 0, .1)
+}
+
+.type-icon {
+  margin-right: 8px;
 }
 
 .config-btn {
