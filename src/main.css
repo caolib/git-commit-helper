@@ -3,6 +3,23 @@
   --light: #fff;
 }
 
+/* 浅色主题 */
+:root,
+:root[data-theme="light"] {
+  --bg-color: #f4f4f4;
+  --text-color: #000;
+  --scrollbar-track: #f4f4f4;
+  --scrollbar-thumb: #666;
+}
+
+/* 深色主题 */
+:root[data-theme="dark"] {
+  --bg-color: #282c34;
+  --text-color: #e6e6e6;
+  --scrollbar-track: #303133;
+  --scrollbar-thumb: #666;
+}
+
 
 html,
 body {
@@ -37,32 +54,17 @@ textarea {
   margin: 0;
 }
 
-@media (prefers-color-scheme: light) {
-  body {
-    background-color: #f4f4f4;
-  }
-
-  ::-webkit-scrollbar-track-piece {
-    background-color: #f4f4f4;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    border-color: #f4f4f4;
-  }
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  &::-webkit-scrollbar-track-piece {
-    background-color: #303133;
-  }
+::-webkit-scrollbar-track-piece {
+  background-color: var(--scrollbar-track);
+}
 
-  &::-webkit-scrollbar-thumb {
-    background-color: #666;
-    border-color: #303133;
-  }
-
-  body {
-    background-color: #303133;
-    color: #fff;
-  }
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-color: var(--scrollbar-track);
 }

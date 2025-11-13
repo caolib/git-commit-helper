@@ -51,6 +51,9 @@ export const useSettingsStore = defineStore('settings', {
         // 行为设置
         isKill: true, // 复制后是否退出
 
+        // 主题设置：'light' | 'dark' | 'system'
+        theme: 'system',
+
         // 远程数据源（保留但不推荐使用）
         isCustomType: false,
         customFileUrl: '',
@@ -84,6 +87,11 @@ export const useSettingsStore = defineStore('settings', {
             this.isKill = value
         },
 
+        // 设置主题
+        setTheme(theme) {
+            this.theme = theme
+        },
+
         // 设置远程数据源
         setCustomType(isCustom, url) {
             this.isCustomType = isCustom
@@ -101,6 +109,7 @@ export const useSettingsStore = defineStore('settings', {
             this.autoClassify = true
             this.classifyRules = { ...defaultClassifyRules }
             this.isKill = true
+            this.theme = 'system'
             this.isCustomType = false
             this.customFileUrl = ''
             this.isCustomIcon = false

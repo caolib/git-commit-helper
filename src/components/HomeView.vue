@@ -232,7 +232,6 @@ textarea.ant-input {
 .commit-msg {
   font-size: 20px;
   width: fit-content;
-  background: white;
   color: #c678dd;
   padding: 10px;
   border-radius: 10px;

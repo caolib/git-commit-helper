@@ -80,22 +80,26 @@ const autoClassify = computed({
     set: (val) => settingsStore.setAutoClassify(val)
 });
 
+const theme = computed({
+    get: () => settingsStore.theme,
+    set: (val) => settingsStore.setTheme(val)
+});
+
+// 主题选项
+const themeOptions = [
+    { label: '跟随系统', value: 'system' },
+    { label: '浅色主题', value: 'light' },
+    { label: '深色主题', value: 'dark' }
+];
+
 // 重置为默认配置
 const resetConfig = () => {
     settingsStore.resetToDefault();
-    message.success("如你所愿");
-}
-
-const logs = () => {
-    console.log('isKill', isKill.value);
-    console.log('useIcon', useIcon.value);
-    console.log('autoClassify', autoClassify.value);
 }
 
 // 保存配置文件（Pinia 自动持久化，这里只显示提示）
 const saveData = () => {
     message.success("保存好了");
-    logs();
 }
 
 // 打开分类规则管理
@@ -295,6 +299,14 @@ const resetTypesToDefault = () => {
                 <a-typography-text class="forbidden-item" v-else>手动选择类型</a-typography-text>
                 <span style="margin-left:8px;color:#888;cursor:help">?</span>
             </a-tooltip>
+        </div>
+        <div class="config-row">
+            <a-typography-text style="margin-right: 10px;">主题:</a-typography-text>
+            <a-radio-group v-model:value="theme" button-style="solid">
+                <a-radio-button v-for="option in themeOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                </a-radio-button>
+            </a-radio-group>
         </div>
         <div class="config-row">
             <a-button type="default" @click="openRulesManager">

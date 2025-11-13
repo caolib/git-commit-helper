@@ -1,16 +1,41 @@
 <script setup>
-import { onMounted, ref, h, watch } from 'vue';
-import { ConfigProvider, Layout, Menu } from 'ant-design-vue';
+import { onMounted, ref, h, watch, computed } from 'vue';
+import { ConfigProvider, Layout, Menu, theme as antTheme } from 'ant-design-vue';
 import { FileTextOutlined, SettingOutlined } from '@ant-design/icons-vue';
 import HomeView from './components/HomeView.vue';
 import ConfigView from './components/ConfigView.vue';
 import { useCommitTypesStore } from './stores/commitTypes';
+import { useSettingsStore } from './stores/settings';
 
 const { Sider, Content } = Layout;
 
 const currentView = ref(['home']);
 const enterAction = ref({});
 const commitTypesStore = useCommitTypesStore();
+const settingsStore = useSettingsStore();
+
+// 主题相关
+const systemDarkMode = ref(window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+// 计算实际使用的主题
+const actualTheme = computed(() => {
+  if (settingsStore.theme === 'system') {
+    return systemDarkMode.value ? 'dark' : 'light';
+  }
+  return settingsStore.theme;
+});
+
+// Ant Design 主题配置
+const themeConfig = computed(() => {
+  return {
+    algorithm: actualTheme.value === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm
+  };
+});
+
+// 应用主题到document
+const applyTheme = () => {
+  document.documentElement.setAttribute('data-theme', actualTheme.value);
+};
 
 const menuItems = [
   {
@@ -68,6 +93,16 @@ const registerCommands = () => {
 };
 
 onMounted(() => {
+  // 应用初始主题
+  applyTheme();
+
+  // 监听系统主题变化
+  const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleThemeChange = (e) => {
+    systemDarkMode.value = e.matches;
+  };
+  darkModeMediaQuery.addEventListener('change', handleThemeChange);
+
   // 清理可能存在的旧动态功能
   try {
     const existingFeatures = window.utools.getFeatures();
@@ -108,18 +143,25 @@ watch(
   }
 );
 
+// 监听主题变化
+watch(actualTheme, () => {
+  applyTheme();
+});
+
 const handleMenuClick = ({ key }) => {
   currentView.value = [key];
 };
 </script>
 
 <template>
-  <ConfigProvider>
+  <ConfigProvider :theme="themeConfig">
     <Layout style="min-height: 100vh;">
-      <Sider theme="light" :width="150" style="border-right: 1px solid #f0f0f0;">
-        <Menu v-model:selectedKeys="currentView" mode="inline" :items="menuItems" @click="handleMenuClick" />
+      <Sider :theme="actualTheme === 'dark' ? 'dark' : 'light'" :width="150"
+        :style="{ borderRight: actualTheme === 'dark' ? '1px solid #303030' : '1px solid #f0f0f0' }">
+        <Menu style="height: 100%;" v-model:selectedKeys="currentView" mode="inline" :items="menuItems"
+          @click="handleMenuClick" />
       </Sider>
-      <Content style="background: #fff;">
+      <Content :style="{ background: actualTheme === 'dark' ? '#141414' : '#fff' }">
         <HomeView v-if="currentView[0] === 'home'" :enterAction="enterAction" />
         <ConfigView v-else-if="currentView[0] === 'config'" />
       </Content>
