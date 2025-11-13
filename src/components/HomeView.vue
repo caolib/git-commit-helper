@@ -27,8 +27,44 @@ const selectedIcon = computed(() => {
   return type?.icon || '';
 });
 
+// 从 enterAction 中提取并设置类型
+const selectTypeFromAction = (action) => {
+  if (!action || !action.code) {
+    selectedType.value = 'feat';
+    return;
+  }
+
+  // 动态功能的 code 格式为 "commit-{type}"
+  if (action.code.startsWith('commit-')) {
+    const typeValue = action.code.replace('commit-', '');
+    if (commitTypesStore.hasCommitType(typeValue)) {
+      selectedType.value = typeValue;
+      return;
+    }
+  }
+  // 静态 commit 功能，使用 payload
+  else if (action.code === 'commit' && action.payload) {
+    if (commitTypesStore.hasCommitType(action.payload)) {
+      selectedType.value = action.payload;
+      return;
+    }
+  }
+
+  // 默认值
+  selectedType.value = 'feat';
+};
+
+// 监听 enterAction 的变化
+watch(
+  () => props.enterAction,
+  (newAction) => {
+    selectTypeFromAction(newAction);
+  },
+  { immediate: true, deep: true }
+);
+
 onMounted(() => {
-  selectedType.value = props.enterAction?.payload || 'feat';
+  selectTypeFromAction(props.enterAction);
 });
 
 const autoClassifyCommitType = (description) => {

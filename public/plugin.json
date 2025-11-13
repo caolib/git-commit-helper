@@ -11,19 +11,8 @@
       "code": "commit",
       "explain": "生成提交信息",
       "cmds": [
-        "feat",
         "commit",
-        "提交信息",
-        "fix",
-        "docs",
-        "init",
-        "style",
-        "refactor",
-        "perf",
-        "test",
-        "build",
-        "chore",
-        "revert"
+        "提交信息"
       ]
     }
   ]

@@ -309,7 +309,7 @@ const resetTypesToDefault = () => {
         <div class="config-row">
             <a-button type="primary" @click="saveData">保存</a-button>
             <a-popconfirm title="确定吗？" ok-text="Yes" cancel-text="我再想想" @confirm="resetConfig">
-                <a-button type="dashed" danger>重置</a-button>
+                <a-button danger>重置</a-button>
             </a-popconfirm>
         </div>
     </div>
