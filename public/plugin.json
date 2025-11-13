@@ -25,13 +25,6 @@
         "chore",
         "revert"
       ]
-    },
-    {
-      "code": "config",
-      "explain": "配置",
-      "cmds": [
-        "git commit config"
-      ]
     }
   ]
 }
