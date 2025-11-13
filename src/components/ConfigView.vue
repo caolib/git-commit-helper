@@ -278,6 +278,95 @@ const resetTypesToDefault = () => {
     });
 };
 
+// 导出配置
+const exportConfig = () => {
+    try {
+        // 收集所有配置数据
+        const configData = {
+            version: '1.0.0',
+            exportTime: new Date().toISOString(),
+            settings: {
+                useIcon: settingsStore.useIcon,
+                autoClassify: settingsStore.autoClassify,
+                isKill: settingsStore.isKill,
+                theme: settingsStore.theme,
+                classifyRules: settingsStore.classifyRules
+            },
+            commitTypes: commitTypesStore.commitTypes
+        };
+
+        const result = window.services.exportConfig(configData, 'git-commit-helper-config.json');
+
+        if (result.success) {
+            message.success(`配置已导出到: ${result.path}`);
+        } else {
+            if (result.message !== '用户取消保存') {
+                message.error(`导出失败: ${result.message}`);
+            }
+        }
+    } catch (error) {
+        message.error(`导出配置失败: ${error.message}`);
+    }
+};
+
+// 导入配置
+const importConfig = () => {
+    Modal.confirm({
+        title: '确认导入',
+        content: '导入配置将覆盖当前所有设置，是否继续？',
+        okText: '确定',
+        cancelText: '取消',
+        onOk() {
+            try {
+                const result = window.services.importConfig();
+
+                if (result.success) {
+                    const config = result.data;
+
+                    // 验证配置数据结构
+                    if (!config.settings || !config.commitTypes) {
+                        message.error('配置文件格式不正确');
+                        return;
+                    }
+
+                    // 应用设置
+                    if (config.settings.useIcon !== undefined) {
+                        settingsStore.setUseIcon(config.settings.useIcon);
+                    }
+                    if (config.settings.autoClassify !== undefined) {
+                        settingsStore.setAutoClassify(config.settings.autoClassify);
+                    }
+                    if (config.settings.isKill !== undefined) {
+                        settingsStore.setIsKill(config.settings.isKill);
+                    }
+                    if (config.settings.theme !== undefined) {
+                        settingsStore.setTheme(config.settings.theme);
+                    }
+                    if (config.settings.classifyRules) {
+                        settingsStore.setClassifyRules(config.settings.classifyRules);
+                    }
+
+                    // 应用提交类型（完全替换）
+                    if (Array.isArray(config.commitTypes) && config.commitTypes.length > 0) {
+                        // 直接替换整个 commitTypes 数组，而不是逐个添加
+                        commitTypesStore.$patch({
+                            commitTypes: config.commitTypes
+                        });
+                    }
+
+                    message.success(`配置已从 ${result.path} 导入成功`);
+                } else {
+                    if (result.message !== '用户取消选择') {
+                        message.error(`导入失败: ${result.message}`);
+                    }
+                }
+            } catch (error) {
+                message.error(`导入配置失败: ${error.message}`);
+            }
+        }
+    });
+};
+
 </script>
 
 <template>
@@ -316,6 +405,14 @@ const resetTypesToDefault = () => {
         <div class="config-row">
             <a-button type="default" @click="openTypeManager">
                 📝 管理提交类型
+            </a-button>
+        </div>
+        <div class="config-row" style="gap: 10px;">
+            <a-button type="default" @click="exportConfig">
+                📤 导出配置
+            </a-button>
+            <a-button type="default" @click="importConfig">
+                📥 导入配置
             </a-button>
         </div>
         <div class="config-row">

@@ -24,6 +24,9 @@ export const useCommitTypesStore = defineStore('commitTypes', {
         // 获取所有提交类型
         allCommitTypes: (state) => state.commitTypes,
 
+        // 获取默认提交类型列表
+        defaultCommitTypes: () => defaultCommitTypes,
+
         // 根据 value 获取提交类型
         getCommitTypeByValue: (state) => (value) => {
             return state.commitTypes.find(type => type.value === value)
