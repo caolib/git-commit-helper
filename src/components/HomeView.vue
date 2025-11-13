@@ -16,6 +16,7 @@ const settingsStore = useSettingsStore();
 
 const selectedType = ref('feat');
 const commitMessage = ref('');
+const commitMessageInput = ref(null);
 const scope = ref('');
 const contributors = ref('');
 const issueId = ref('');
@@ -65,6 +66,10 @@ watch(
 
 onMounted(() => {
   selectTypeFromAction(props.enterAction);
+  // 自动聚焦到输入框
+  if (commitMessageInput.value) {
+    commitMessageInput.value.focus();
+  }
 });
 
 const autoClassifyCommitType = (description) => {
@@ -217,7 +222,8 @@ const copyText = (text) => {
           placeholder="问题ID（可选）" />
       </div>
       <div class="row2" style="display: flex;padding: 10px; align-items: center;width: 80vw;">
-        <a-textarea v-model:value="commitMessage" allowClear placeholder="输入提交信息概述" :rows="3" />
+        <a-textarea ref="commitMessageInput" v-model:value="commitMessage" allowClear placeholder="输入提交信息概述"
+          :rows="3" />
       </div>
 
       <div class="row3" style="display: flex;padding: 10px; flex-direction: column;">
