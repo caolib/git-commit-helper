@@ -45,7 +45,7 @@ jobs:
               shell: pwsh
               run: |
                   $version = "${{ steps.get_version.outputs.version }}"
-                  # 尝试 .upx 和 .upxs 两种扩展名
+                  # 尝试 .upxs 和 .upx 两种扩展名
                   $fileNames = @(
                     "git commit helper-$version.upxs",
                     "git commit helper-$version.upx"
@@ -60,8 +60,10 @@ jobs:
                     
                     if (Test-Path $filePath) {
                       Write-Host "✅ Found: $filePath"
+                      # 转换为相对路径（使用正斜杠）
+                      $relativePath = "build/$fileName"
                       $foundFile = @{
-                        path = $filePath
+                        path = $relativePath
                         name = $fileName
                       }
                       break
@@ -72,6 +74,7 @@ jobs:
                     echo "file_path=$($foundFile.path)" >> $env:GITHUB_OUTPUT
                     echo "file_name=$($foundFile.name)" >> $env:GITHUB_OUTPUT
                     echo "found=true" >> $env:GITHUB_OUTPUT
+                    Write-Host "Output file_path: $($foundFile.path)"
                   } else {
                     Write-Host "❌ File not found in: $basePath"
                     Write-Host "Tried files:"
