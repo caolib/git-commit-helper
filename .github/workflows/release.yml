@@ -20,8 +20,11 @@ jobs:
               shell: pwsh
               run: |
                   $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
-                  echo "version=$tag" >> $env:GITHUB_OUTPUT
-                  echo "Version: $tag"
+                  # 去掉 v 前缀（如果有）
+                  $version = $tag -replace '^v', ''
+                  echo "version=$version" >> $env:GITHUB_OUTPUT
+                  echo "tag=$tag" >> $env:GITHUB_OUTPUT
+                  echo "Version: $version (Tag: $tag)"
 
             - name: Read release notes
               id: release_notes
@@ -82,7 +85,7 @@ jobs:
               uses: softprops/action-gh-release@v1
               if: steps.find_file.outputs.found == 'true'
               with:
-                  name: Release v${{ steps.get_version.outputs.version }}
+                  name: Release ${{ steps.get_version.outputs.tag }}
                   body: ${{ steps.release_notes.outputs.body }}
                   draft: false
                   prerelease: false

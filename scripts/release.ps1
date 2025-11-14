@@ -209,7 +209,7 @@ git add .
 
 $gitStatus = git status --porcelain
 if (-not [string]::IsNullOrWhiteSpace($gitStatus)) {
-    git commit -m "📝 docs: 准备发布 $TagVersion"
+    git commit -m "🐳 chore: 发布 $TagVersion"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "错误: 提交更改失败" -ForegroundColor Red
         exit 1
