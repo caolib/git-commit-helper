@@ -12,6 +12,9 @@
 - [eeb29a8] 🐛 fix: 添加贡献者和问题id等属性，添加自动分类功能
 
 ### 🔧 其他
+- [44ca1c8] 📝 docs: 准备发布 v0.2.0
+- [7636cb4] 📝 docs: 准备发布 v0.2.0
+- [82e2456] 📄 docs: 添加变更日志文件
 - [b4afcf1] 🦄 refactor: 存储改为使用utools官方的db-storage工具
 - [12cde6e] 🦄 refactor: 优化规则配置
 - [ca7d0fb] 🌈 style: 优化界面布局
