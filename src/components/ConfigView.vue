@@ -111,6 +111,11 @@ const customTemplate = computed({
     set: (val) => { settingsStore.customTemplate.value = val }
 });
 
+// 检查是否为分离窗口
+const isDetachedWindow = computed(() => {
+    return window.utools?.getWindowType() === 'detach';
+});
+
 // 复制后的操作选项
 const copyActionOptions = [
     { label: '仅复制', value: 'copy-only' },
@@ -446,9 +451,8 @@ const importConfig = () => {
                 </a-radio-button>
             </a-radio-group>
         </div>
-        <div class="config-row alert-row" v-if="copyAction === 'copy-close-paste'">
-            <a-alert message="注意" description="复制、关闭并粘贴功能在分离窗口模式下无法正常工作。如果你将 uTools 窗口设置为分离窗口，请选择其他模式。" type="warning"
-                show-icon closable />
+        <div class="config-row alert-row" v-if="copyAction === 'copy-close-paste' && isDetachedWindow">
+            <a-alert message="注意" description="当前为分离窗口模式，复制、关闭并粘贴功能无法正常工作，请选择其他模式。" type="warning" show-icon closable />
         </div>
         <div class="config-row">
             <a-switch v-model:checked="useIcon" />
