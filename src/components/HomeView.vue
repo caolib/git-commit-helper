@@ -3,6 +3,7 @@ import { ref, watch, computed, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { useCommitTypesStore } from '../stores/commitTypes';
 import { useSettingsStore } from '../stores/settings';
+import { parseTemplate, formatContributors, formatIssue, getDefaultTemplate } from '../utils/templateParser';
 
 const props = defineProps({
   enterAction: {
@@ -112,42 +113,27 @@ watch(commitMessage, (newMessage) => {
   autoClassifyCommitType(newMessage);
 });
 
-const formatContributors = (contributorsText) => {
-  if (!contributorsText.trim()) {
-    return '';
-  }
-
-  if (contributorsText.includes('@')) {
-    return contributorsText.trim();
-  }
-
-  const names = contributorsText
-    .split(/[\s,&]+/)
-    .map(name => name.trim())
-    .filter(name => name.length > 0);
-
-  return names.map(name => `@${name}`).join(' & ');
-};
-
 const generatedCommitMessage = computed(() => {
   if (!selectedType.value) return '';
 
-  const scopeText = scope.value ? `(${scope.value})` : '';
-  const emojiPart = settingsStore.useIcon.value ? `${selectedIcon.value} ` : '';
+  // 准备模板数据，格式化贡献者和问题ID
+  const templateData = {
+    icon: settingsStore.useIcon.value ? selectedIcon.value : '',
+    type: selectedType.value,
+    scope: scope.value ? scope.value.trim() : '',
+    message: commitMessage.value,
+    contributors: contributors.value ? formatContributors(contributors.value) : '',
+    issue: issueId.value ? formatIssue(issueId.value) : ''
+  };
 
-  let commit = `${emojiPart}${selectedType.value}${scopeText}: ${commitMessage.value}`;
-
-  if (contributors.value && contributors.value.trim()) {
-    const formattedContributors = formatContributors(contributors.value);
-    commit += ` thanks ${formattedContributors}`;
+  // 只有在用户启用自定义模板且模板非空时才使用自定义模板
+  if (settingsStore.useCustomTemplate.value && settingsStore.customTemplate.value && settingsStore.customTemplate.value.trim()) {
+    return parseTemplate(settingsStore.customTemplate.value, templateData);
   }
 
-  if (issueId.value && issueId.value.trim()) {
-    const issueText = issueId.value.trim().startsWith('#') ? issueId.value.trim() : `#${issueId.value.trim()}`;
-    commit += ` ${issueText}`;
-  }
-
-  return commit;
+  // 否则始终使用默认模板
+  const defaultTemplate = getDefaultTemplate();
+  return parseTemplate(defaultTemplate, templateData);
 });
 
 const generatedGitCommitMessage = computed(() => {

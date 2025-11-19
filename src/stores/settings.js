@@ -53,7 +53,9 @@ const defaultSettings = {
     isCustomType: false,
     customFileUrl: '',
     isCustomIcon: false,
-    customIconUrl: ''
+    customIconUrl: '',
+    useCustomTemplate: false,
+    customTemplate: '{icon} {type}{scope:(:)}: {message}{contributors: (by :}{issue: in :)}'
 }
 
 // 从 dbStorage 加载设置
@@ -138,6 +140,16 @@ export function useSettingsStore() {
         set: (val) => { settings.value.customIconUrl = val }
     })
 
+    const useCustomTemplate = computed({
+        get: () => settings.value.useCustomTemplate,
+        set: (val) => { settings.value.useCustomTemplate = val }
+    })
+
+    const customTemplate = computed({
+        get: () => settings.value.customTemplate,
+        set: (val) => { settings.value.customTemplate = val }
+    })
+
     // Actions
     const setUseIcon = (value) => {
         settings.value.useIcon = value
@@ -173,6 +185,14 @@ export function useSettingsStore() {
         settings.value.customIconUrl = url
     }
 
+    const setUseCustomTemplate = (value) => {
+        settings.value.useCustomTemplate = value
+    }
+
+    const setCustomTemplate = (template) => {
+        settings.value.customTemplate = template
+    }
+
     const resetToDefault = () => {
         settings.value = { ...defaultSettings }
     }
@@ -188,6 +208,8 @@ export function useSettingsStore() {
         customFileUrl,
         isCustomIcon,
         customIconUrl,
+        useCustomTemplate,
+        customTemplate,
 
         // Actions
         setUseIcon,
@@ -198,6 +220,8 @@ export function useSettingsStore() {
         setTheme,
         setCustomType,
         setCustomIcon,
+        setUseCustomTemplate,
+        setCustomTemplate,
         resetToDefault
     }
 }

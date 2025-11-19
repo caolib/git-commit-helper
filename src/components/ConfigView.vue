@@ -4,9 +4,25 @@ import { message, Modal } from 'ant-design-vue'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { useSettingsStore } from '../stores/settings'
 import { useCommitTypesStore } from '../stores/commitTypes'
+import { parseTemplate, getTemplateVariables, getTemplateExamples, getDefaultTemplate, formatContributors, formatIssue } from '../utils/templateParser'
 
 const settingsStore = useSettingsStore();
 const commitTypesStore = useCommitTypesStore();
+
+// 模板管理相关状态
+const showTemplateManager = ref(false);
+const templateVariables = getTemplateVariables();
+const templateExamples = getTemplateExamples();
+
+// 预览数据（可编辑）
+const previewValues = ref({
+    icon: '✨',
+    type: 'feat',
+    scope: 'ui',
+    message: 'add new button component',
+    contributors: 'john,jane',
+    issue: '123,456'
+});
 
 const showRulesManager = ref(false);
 const showEditRule = ref(false);
@@ -85,6 +101,16 @@ const theme = computed({
     set: (val) => { settingsStore.theme.value = val }
 });
 
+const useCustomTemplate = computed({
+    get: () => settingsStore.useCustomTemplate.value,
+    set: (val) => { settingsStore.useCustomTemplate.value = val }
+});
+
+const customTemplate = computed({
+    get: () => settingsStore.customTemplate.value,
+    set: (val) => { settingsStore.customTemplate.value = val }
+});
+
 // 复制后的操作选项
 const copyActionOptions = [
     { label: '仅复制', value: 'copy-only' },
@@ -98,6 +124,40 @@ const themeOptions = [
     { label: '浅色主题', value: 'light' },
     { label: '深色主题', value: 'dark' }
 ];
+
+// 模板预览数据使用可编辑的 previewValues，并格式化贡献者和问题ID
+const previewData = computed(() => ({
+    ...previewValues.value,
+    contributors: previewValues.value.contributors ? formatContributors(previewValues.value.contributors) : '',
+    issue: previewValues.value.issue ? formatIssue(previewValues.value.issue) : ''
+}));
+
+const templatePreview = computed(() => {
+    if (!customTemplate.value) {
+        return '请输入模板';
+    }
+    try {
+        return parseTemplate(customTemplate.value, previewData.value);
+    } catch (error) {
+        return '模板格式错误';
+    }
+});
+
+const openTemplateManager = () => {
+    showTemplateManager.value = true;
+};
+
+const applyTemplateExample = (example) => {
+    customTemplate.value = example.template;
+    message.success(`已应用模板：${example.name}`);
+};
+
+const resetTemplate = () => {
+    const defaultTemplate = getDefaultTemplate();
+    customTemplate.value = defaultTemplate;
+    useCustomTemplate.value = false;
+    message.success('已重置为默认模板');
+};
 
 // 重置为默认配置
 const resetConfig = () => {
@@ -379,14 +439,14 @@ const importConfig = () => {
 <template>
     <div class="config-view">
         <div class="config-row">
-            <a-typography-text style="margin-right: 10px;">复制后的操作:</a-typography-text>
+            <a-typography-text class="label-text">复制后的操作:</a-typography-text>
             <a-radio-group v-model:value="copyAction" button-style="solid">
                 <a-radio-button v-for="option in copyActionOptions" :key="option.value" :value="option.value">
                     {{ option.label }}
                 </a-radio-button>
             </a-radio-group>
         </div>
-        <div class="config-row" v-if="copyAction === 'copy-close-paste'" style="padding-left: 20px;">
+        <div class="config-row alert-row" v-if="copyAction === 'copy-close-paste'">
             <a-alert message="注意" description="复制、关闭并粘贴功能在分离窗口模式下无法正常工作。如果你将 uTools 窗口设置为分离窗口，请选择其他模式。" type="warning"
                 show-icon closable />
         </div>
@@ -400,11 +460,11 @@ const importConfig = () => {
             <a-tooltip title="开启后会根据提交信息中的关键字自动选择提交类型">
                 <a-typography-text v-if="autoClassify">根据规则分类</a-typography-text>
                 <a-typography-text class="forbidden-item" v-else>手动选择类型</a-typography-text>
-                <span style="margin-left:8px;color:#888;cursor:help">?</span>
+                <span class="help-icon">?</span>
             </a-tooltip>
         </div>
         <div class="config-row">
-            <a-typography-text style="margin-right: 10px;">主题:</a-typography-text>
+            <a-typography-text class="label-text">主题:</a-typography-text>
             <a-radio-group v-model:value="theme" button-style="solid">
                 <a-radio-button v-for="option in themeOptions" :key="option.value" :value="option.value">
                     {{ option.label }}
@@ -421,7 +481,12 @@ const importConfig = () => {
                 📝 管理提交类型
             </a-button>
         </div>
-        <div class="config-row" style="gap: 10px;">
+        <div class="config-row">
+            <a-button type="default" @click="openTemplateManager">
+                📋 自定义生成模板
+            </a-button>
+        </div>
+        <div class="config-row button-group">
             <a-button type="default" @click="exportConfig">
                 📤 导出配置
             </a-button>
@@ -439,10 +504,10 @@ const importConfig = () => {
 
     <!-- 分类规则管理弹窗 -->
     <a-modal v-model:open="showRulesManager" title="自动分类规则管理" width="70vw" @ok="showRulesManager = false">
-        <div style="margin-bottom: 15px; display:flex; align-items:center; gap:10px;">
-            <a-select v-model:value="selectedRuleType" style="width: 300px;" placeholder="选择提交类型">
+        <div class="modal-header">
+            <a-select v-model:value="selectedRuleType" class="type-selector" placeholder="选择提交类型">
                 <a-select-option v-for="option in selectOptions" :key="option.value" :value="option.value">
-                    <span v-if="option.icon" style="margin-right:8px">{{ option.icon }}</span>
+                    <span v-if="option.icon" class="option-icon">{{ option.icon }}</span>
                     <span>{{ option.value }} {{ option.label }}</span>
                 </a-select-option>
             </a-select>
@@ -458,18 +523,18 @@ const importConfig = () => {
             <a-descriptions-item label="以...开头">
                 <a-tag v-for="keyword in currentRules.startsWith" :key="keyword" color="blue">{{ keyword }}</a-tag>
                 <span v-if="!currentRules.startsWith || currentRules.startsWith.length === 0"
-                    style="color: #999;">无</span>
+                    class="empty-text">无</span>
             </a-descriptions-item>
             <a-descriptions-item label="包含...">
                 <a-tag v-for="keyword in currentRules.contains" :key="keyword" color="green">{{ keyword }}</a-tag>
-                <span v-if="!currentRules.contains || currentRules.contains.length === 0" style="color: #999;">无</span>
+                <span v-if="!currentRules.contains || currentRules.contains.length === 0" class="empty-text">无</span>
             </a-descriptions-item>
             <a-descriptions-item label="以...结尾">
                 <a-tag v-for="keyword in currentRules.endsWith" :key="keyword" color="orange">{{ keyword }}</a-tag>
-                <span v-if="!currentRules.endsWith || currentRules.endsWith.length === 0" style="color: #999;">无</span>
+                <span v-if="!currentRules.endsWith || currentRules.endsWith.length === 0" class="empty-text">无</span>
             </a-descriptions-item>
         </a-descriptions>
-        <div v-else style="text-align: center; padding: 40px; color: #999;">
+        <div v-else class="empty-state">
             请选择一个提交类型
         </div>
     </a-modal>
@@ -481,12 +546,12 @@ const importConfig = () => {
             <a-form-item label="以...开头（输入后按回车添加）">
                 <a-input v-model:value="tempInputs.startsWith" placeholder="例如：修复"
                     @pressEnter="handleKeywordAdd('startsWith', $event)" />
-                <div style="margin-top: 8px;">
+                <div class="tag-container">
                     <a-tag v-for="keyword in ruleForm.startsWith" :key="keyword" closable color="blue"
                         @close="removeKeyword('startsWith', keyword)">
                         {{ keyword }}
                     </a-tag>
-                    <span v-if="ruleForm.startsWith.length === 0" style="color: #999; font-size: 12px;">
+                    <span v-if="ruleForm.startsWith.length === 0" class="no-keyword-text">
                         暂无关键词
                     </span>
                 </div>
@@ -494,12 +559,12 @@ const importConfig = () => {
             <a-form-item label="包含...（输入后按回车添加）">
                 <a-input v-model:value="tempInputs.contains" placeholder="例如：bug"
                     @pressEnter="handleKeywordAdd('contains', $event)" />
-                <div style="margin-top: 8px;">
+                <div class="tag-container">
                     <a-tag v-for="keyword in ruleForm.contains" :key="keyword" closable color="green"
                         @close="removeKeyword('contains', keyword)">
                         {{ keyword }}
                     </a-tag>
-                    <span v-if="ruleForm.contains.length === 0" style="color: #999; font-size: 12px;">
+                    <span v-if="ruleForm.contains.length === 0" class="no-keyword-text">
                         暂无关键词
                     </span>
                 </div>
@@ -507,12 +572,12 @@ const importConfig = () => {
             <a-form-item label="以...结尾（输入后按回车添加）">
                 <a-input v-model:value="tempInputs.endsWith" placeholder="留空表示不使用"
                     @pressEnter="handleKeywordAdd('endsWith', $event)" />
-                <div style="margin-top: 8px;">
+                <div class="tag-container">
                     <a-tag v-for="keyword in ruleForm.endsWith" :key="keyword" closable color="orange"
                         @close="removeKeyword('endsWith', keyword)">
                         {{ keyword }}
                     </a-tag>
-                    <span v-if="ruleForm.endsWith.length === 0" style="color: #999; font-size: 12px;">
+                    <span v-if="ruleForm.endsWith.length === 0" class="no-keyword-text">
                         暂无关键词
                     </span>
                 </div>
@@ -522,9 +587,9 @@ const importConfig = () => {
 
     <!-- 提交类型管理弹窗 -->
     <a-modal v-model:open="showTypeManager" title="提交类型管理" width="80vw" @ok="showTypeManager = false">
-        <div style="margin-bottom: 15px;">
+        <div class="modal-header">
             <a-button type="primary" @click="addNewType">添加提交类型</a-button>
-            <a-button style="margin-left: 10px;" @click="resetTypesToDefault">重置为默认</a-button>
+            <a-button class="reset-btn" @click="resetTypesToDefault">重置为默认</a-button>
         </div>
 
         <a-table :dataSource="commitTypes" :columns="[
@@ -535,7 +600,7 @@ const importConfig = () => {
         ]" :pagination="false" bordered>
             <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'action'">
-                    <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="action-buttons">
                         <a-button type="link" size="small" @click="editType(record)">
                             <edit-outlined /> 编辑
                         </a-button>
@@ -559,16 +624,90 @@ const importConfig = () => {
             </a-form-item>
             <a-form-item label="图标">
                 <a-input v-model:value="typeForm.icon" placeholder="例如：✨（可选）" />
-                <div style="margin-top: 5px; font-size: 12px; color: #888;">
+                <div class="hint-text">
                     提示：Windows按 Win+; 可打开表情符号面板
                 </div>
             </a-form-item>
         </a-form>
     </a-modal>
+
+    <!-- 模板管理弹窗 -->
+    <a-modal v-model:open="showTemplateManager" title="自定义生成模板" width="80vw" @ok="showTemplateManager = false">
+        <div class="template-switch">
+            <a-switch v-model:checked="useCustomTemplate" />
+            <span class="switch-label">启用自定义模板</span>
+            <a-button type="default" size="small" class="reset-template-btn" @click="resetTemplate">
+                重置为默认模板
+            </a-button>
+        </div>
+
+        <div v-if="useCustomTemplate">
+            <!-- 模板编辑器 -->
+            <div class="template-section">
+                <div class="section-title">模板字符串：</div>
+                <a-textarea v-model:value="customTemplate" :rows="1" placeholder="输入模板字符串" class="template-textarea" />
+                <div class="section-hint">
+                    {变量:前缀:后缀 } -> 前缀变量后缀，变量的值替换到第二个：的位置<br />
+                    如果变量为空则不显示前缀和后缀。例如：{scope:(:)}，scope为空时不显示括号。
+                </div>
+            </div>
+
+            <!-- 变量值编辑器 -->
+            <div class="template-section">
+                <table class="variable-table">
+                    <thead>
+                        <tr>
+                            <th v-for="variable in templateVariables" :key="variable.name">{{ variable.label }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td v-for="variable in templateVariables" :key="variable.name">
+                                <a-input v-model:value="previewValues[variable.name]" :placeholder="variable.example"
+                                    size="small" allow-clear />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 实时预览 -->
+            <div class="template-section preview-section">
+                <div class="section-title">预览效果：</div>
+                <div class="preview-box">
+                    {{ templatePreview }}
+                </div>
+            </div>
+
+            <!-- 模板示例 -->
+            <div class="template-section">
+                <div class="section-title">模板示例：</div>
+                <a-list :dataSource="templateExamples" bordered size="small">
+                    <template #renderItem="{ item }">
+                        <a-list-item>
+                            <template #actions>
+                                <a-button type="link" size="small" @click="applyTemplateExample(item)">
+                                    应用
+                                </a-button>
+                            </template>
+                            <a-list-item-meta :title="item.name" :description="item.description" />
+                            <div class="template-code">
+                                {{ item.template }}
+                            </div>
+                        </a-list-item>
+                    </template>
+                </a-list>
+            </div>
+        </div>
+
+        <div v-else class="empty-state">
+            自定义模板功能已关闭，当前使用默认模板
+        </div>
+    </a-modal>
 </template>
 
 <style scoped>
-div.config-view {
+.config-view {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -576,12 +715,30 @@ div.config-view {
     flex-direction: column;
 }
 
-div.config-row {
+.config-row {
     display: flex;
     align-items: center;
     padding: 10px;
     width: 80vw;
     gap: 10px;
+}
+
+.config-row.alert-row {
+    padding-left: 20px;
+}
+
+.config-row.button-group {
+    gap: 10px;
+}
+
+.label-text {
+    margin-right: 10px;
+}
+
+.help-icon {
+    margin-left: 8px;
+    color: #888;
+    cursor: help;
 }
 
 .forbidden-item {
@@ -590,5 +747,135 @@ div.config-row {
 
 .type-icon {
     margin-right: 8px;
+}
+
+/* 弹窗相关样式 */
+.modal-header {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.type-selector {
+    width: 300px;
+}
+
+.option-icon {
+    margin-right: 8px;
+}
+
+.empty-text {
+    color: #999;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+.tag-container {
+    margin-top: 8px;
+}
+
+.no-keyword-text {
+    color: #999;
+    font-size: 12px;
+}
+
+.reset-btn {
+    margin-left: 10px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.hint-text {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #888;
+}
+
+/* 模板管理样式 */
+.template-switch {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.switch-label {
+    margin-left: 0;
+}
+
+.reset-template-btn {
+    margin-left: auto;
+}
+
+
+.section-title {
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.template-textarea {
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.section-hint {
+    margin-top: 8px;
+    color: #888;
+    font-size: 12px;
+}
+
+.preview-section {
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.preview-box {
+    padding: 10px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.format-guide {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.template-code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* 变量编辑器表格样式 */
+.variable-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.variable-table th {
+    padding: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    text-align: left;
+    border-bottom: 2px solid #e8e8e8;
+}
+
+.variable-table td {
+    padding: 8px;
+}
+
+.variable-table td .ant-input {
+    width: 100%;
 }
 </style>

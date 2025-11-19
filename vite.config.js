@@ -8,6 +8,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [
     vue(),
+    // VueDevTools({ launchEditor: 'antigravity' }),
     VueDevTools(),
     alias({
       entries: [
